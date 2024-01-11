@@ -30,3 +30,14 @@
 *.exe
 *.out
 *.app
+
+# node
+node_modules
+
+# xmake
+build
+.xmake
+
+# vscode
+.vscode
+
