@@ -36,6 +36,8 @@ public:
 	ssize_t recv(void *data, size_t size) override;
 	void close() override;
 
+	std::string address() override;
+
 	int kcp_intput(const void *data, size_t size);
 	void kcp_update();
 

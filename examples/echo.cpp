@@ -22,6 +22,11 @@ public:
 		return true;
 	}
 
+    std::string address() override final
+    {
+        return address_;
+    }
+
 	ssize_t send_to(const void *data, size_t size,
 					const std::string &to) override final
 	{

@@ -38,6 +38,8 @@ public:
 	ssize_t recv(void *data, size_t size);
 	void close();
 
+	std::string address();
+
 private:
 	bool wait_for_accept_();
 
@@ -79,6 +81,7 @@ public:
 	{
 		return internel_->bind(address);
 	}
+
 
 	/**
 	 * @brief connect to address
@@ -123,6 +126,11 @@ public:
 	void close() override
 	{
 		internel_->close();
+	}
+
+	std::string address() override
+	{
+		return internel_->address();
 	}
 
 private:

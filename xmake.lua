@@ -10,8 +10,15 @@ target("echo")
     add_files("examples/echo.cpp")
     add_deps("ucp")
 
+target("udpserver")
+    set_kind("binary")
+    add_files("examples/udpserver.cpp")
+    add_deps("ucp")
 
-
+target("udpclient")
+    set_kind("binary")
+    add_files("examples/udpclient.cpp")
+    add_deps("ucp")
     
     
 

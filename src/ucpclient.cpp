@@ -244,3 +244,8 @@ void ClientInternel::close()
 
 	sock_->close();
 }
+
+std::string ClientInternel::address()
+{
+	return local_address_;
+}

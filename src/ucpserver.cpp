@@ -207,3 +207,8 @@ void ServerConnection::close()
 
 	sock_->send_to(&msg, sizeof(msg), remote_address_);
 }
+
+std::string ServerConnection::address()
+{
+	return remote_address_;
+}

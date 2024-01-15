@@ -47,6 +47,13 @@ public:
 
 	virtual ssize_t recv(void *data, size_t size) = 0;
 	virtual void close() = 0;
+
+	/**
+	 * @brief get address
+	 * 
+	 * @param address 
+	 */
+	virtual std::string address() = 0;
 };
 
 
@@ -62,6 +69,13 @@ public:
 	 * @return false 
 	 */
 	virtual bool bind(const std::string &address) = 0;
+
+	/**
+	 * @brief get address
+	 * 
+	 * @param address 
+	 */
+	virtual std::string address() = 0;
 
 	/**
 	 * @brief send a packet to address
