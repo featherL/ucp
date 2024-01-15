@@ -96,6 +96,17 @@ public:
 	{
 		internel_->exit();
 		monitor_thread_.join();
+		sock_->close();
+	}
+
+	/**
+	 * @brief get bind address
+	 * 
+	 * @return std::string 
+	 */
+	std::string address()
+	{
+		return sock_->address();
 	}
 
 	/**

@@ -206,6 +206,8 @@ void ServerConnection::close()
 	msg.msg_size = 0;
 
 	sock_->send_to(&msg, sizeof(msg), remote_address_);
+
+	// do not close socket
 }
 
 std::string ServerConnection::address()
