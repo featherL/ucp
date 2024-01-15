@@ -64,7 +64,7 @@ public:
 	/**
 	 * @brief bind to address
 	 * 
-	 * @param address 
+	 * @param address if address is empty, bind to a valid address
 	 * @return true 
 	 * @return false 
 	 */

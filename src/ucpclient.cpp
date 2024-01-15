@@ -157,12 +157,19 @@ bool ClientInternel::bind(const std::string &address)
 		return false;
 	}
 
-	local_address_ = address;
-	return sock_->bind(local_address_);
+	if (!sock_->bind(address))
+		return false;
+
+	local_address_ = sock_->address();
+	return true;
 }
 
 bool ClientInternel::connect(const std::string &address)
 {
+	if (local_address_ == "" && !bind("")) {
+		return false;
+	}
+
 	{
 		std::lock_guard<std::mutex> lock(status_mutex_);
 		if (status_ != kInit) {

@@ -18,14 +18,21 @@ class SimpleSock : public ucp::Sock {
 public:
 	bool bind(const std::string &address) override final
 	{
-		address_ = address;
+		if (address != "client" && address != "server" && address != "") {
+			return false;
+		}
+
+		if (address == "")
+			address_ = "client";
+		else
+			address_ = address;
 		return true;
 	}
 
-    std::string address() override final
-    {
-        return address_;
-    }
+	std::string address() override final
+	{
+		return address_;
+	}
 
 	ssize_t send_to(const void *data, size_t size,
 					const std::string &to) override final
@@ -93,81 +100,81 @@ private:
 
 void server_thread_func()
 {
-    ucp::Server<SimpleSock> server;
-    server.listen_at("server");
-    fprintf(stderr, "server listen at server\n");
+	ucp::Server<SimpleSock> server;
+	server.listen_at("server");
+	fprintf(stderr, "server listen at server\n");
 
-    auto session = server.accept();
-    fprintf(stderr, "server accept\n");
+	auto session = server.accept();
+	fprintf(stderr, "server accept\n");
 
-    char buf[1024];
-    while (true) {
-        ssize_t recv_size = session->recv(buf, 1024);
-        if (recv_size > 0) {
-            buf[recv_size] = '\0';
-            printf("server recv: %s\n", buf);
-            session->send(buf, recv_size);
-        } else if (recv_size == 0) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(10));
-        } else {
-            fprintf(stderr, "server recv error\n");
-            break;
-        }
-    }
+	char buf[1024];
+	while (true) {
+		ssize_t recv_size = session->recv(buf, 1024);
+		if (recv_size > 0) {
+			buf[recv_size] = '\0';
+			printf("server recv: %s\n", buf);
+			session->send(buf, recv_size);
+		} else if (recv_size == 0) {
+			std::this_thread::sleep_for(std::chrono::milliseconds(10));
+		} else {
+			fprintf(stderr, "server recv error\n");
+			break;
+		}
+	}
 
-    fprintf(stderr, "session close\n");
+	fprintf(stderr, "session close\n");
 
-    session->close();
+	session->close();
 }
 
 int main()
 {
 	std::thread server_thread(server_thread_func);
-    ucp::Client<SimpleSock> client;
-    
-    if (!client.bind("client")) {
-        printf("client bind error\n");
-        return -1;
-    }
-    fprintf(stderr, "client bind at client\n");
+	ucp::Client<SimpleSock> client;
 
-    if (!client.connect("server")) {
-        printf("client connect error\n");
-        return -1;
-    }
-    fprintf(stderr, "client connect to server\n");
+	if (!client.bind("client")) {
+		printf("client bind error\n");
+		return -1;
+	}
+	fprintf(stderr, "client bind at client\n");
 
-    char buf[1024];
-    int flag = 0;
-    while (fgets(buf, 1024, stdin) && !flag) {
-        size_t len = strlen(buf);
-        if (len > 0) {
-            buf[len - 1] = '\0';
-        }
+	if (!client.connect("server")) {
+		printf("client connect error\n");
+		return -1;
+	}
+	fprintf(stderr, "client connect to server\n");
 
-        ssize_t send_size = client.send(buf, len);
-        if (send_size < 0) {
-            printf("client send error\n");
-            break;
-        }
+	char buf[1024];
+	int flag = 0;
+	while (fgets(buf, 1024, stdin) && !flag) {
+		size_t len = strlen(buf);
+		if (len > 0) {
+			buf[len - 1] = '\0';
+		}
 
-        while (true) {
-            ssize_t recv_size = client.recv(buf, 1024-1);
-            if (recv_size > 0) {
-                buf[recv_size] = '\0';
-                printf("client recv: %s\n", buf);
-                break;
-            } else if (recv_size == 0) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-            } else {
-                fprintf(stderr, "client recv error\n");
-                flag = 1;
-            }
-        }
-    }
+		ssize_t send_size = client.send(buf, len);
+		if (send_size < 0) {
+			printf("client send error\n");
+			break;
+		}
 
-    client.close();
-    server_thread.join();
+		while (true) {
+			ssize_t recv_size = client.recv(buf, 1024 - 1);
+			if (recv_size > 0) {
+				buf[recv_size] = '\0';
+				printf("client recv: %s\n", buf);
+				break;
+			} else if (recv_size == 0) {
+				std::this_thread::sleep_for(std::chrono::milliseconds(10));
+			} else {
+				fprintf(stderr, "client recv error\n");
+				flag = 1;
+			}
+		}
+	}
+
+	client.close();
+	server_thread.join();
 
 	return 0;
 }

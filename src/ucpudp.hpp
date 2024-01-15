@@ -69,6 +69,10 @@ public:
 
 	bool bind(const std::string &address) override
 	{
+		if (address == "") {
+			return true;
+		}
+		
 		struct sockaddr_in addr;
 		if (!str_to_sockaddr(address, addr)) {
 			return false;
