@@ -53,6 +53,8 @@ private:
 	std::string remote_address_;
 	uint32_t session_id_;
 	ikcpcb *kcp_;
+
+	std::chrono::steady_clock::time_point last_hearbeat_time_;
 };
 
 template <class T>

@@ -44,6 +44,9 @@ public:
 	Status status();
 	bool status(Status new_status);
 
+	bool last_hearbeat_time(std::chrono::steady_clock::time_point time);
+	std::chrono::steady_clock::time_point last_hearbeat_time();
+
 private:
 	ikcpcb *kcp_;
 	std::shared_ptr<Sock> sock_;
@@ -52,6 +55,8 @@ private:
 
 	std::mutex status_mutex_;
 	Status status_;
+
+	std::chrono::steady_clock::time_point last_hearbeat_time_;
 };
 
 class ServerInternel {
@@ -80,12 +85,59 @@ public:
 		connections_;
 };
 
+class SockWithLock : public Sock {
+public:
+	SockWithLock() = delete;
+
+	SockWithLock(std::shared_ptr<Sock> sock)
+		: sock_(sock)
+	{
+	}
+
+	~SockWithLock() override = default;
+
+	bool bind(const std::string &address) override
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		return sock_->bind(address);
+	}
+
+	std::string address() override
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		return sock_->address();
+	}
+
+	ssize_t send_to(const void *data, size_t size,
+					const std::string &to) override
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		return sock_->send_to(data, size, to);
+	}
+
+	ssize_t recv_from(void *data, size_t size, std::string &from) override
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		return sock_->recv_from(data, size, from);
+	}
+
+	void close() override
+	{
+		std::lock_guard<std::mutex> lock(mutex_);
+		sock_->close();
+	}
+
+private:
+	std::mutex mutex_;
+	std::shared_ptr<Sock> sock_;
+};
+
 template <class T>
 class Server {
 public:
 	Server<T>()
-		: sock_(std::make_shared<T>())
-		, internel_(std::make_shared<ServerInternel>())
+		: internel_(std::make_shared<ServerInternel>())
+		, sock_(std::make_shared<SockWithLock>(std::make_shared<T>()))
 	{
 		monitor_thread_ =
 			std::thread(ServerInternel::monitor_thread_func, sock_, internel_);
@@ -157,7 +209,7 @@ public:
 	}
 
 private:
-	std::shared_ptr<T> sock_;
+	std::shared_ptr<Sock> sock_;
 	std::thread monitor_thread_;
 	std::shared_ptr<ServerInternel> internel_;
 };

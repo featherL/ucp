@@ -25,7 +25,18 @@ void ClientInternel::monitor_thread_func(
 			} else if (internel->status_ == kHandshake) {
 				internel->status_ = tranfer_status_from_handshake(internel);
 			} else if (internel->status_ == kConnected) {
+				if (std::chrono::steady_clock::now() -
+						internel->last_hearbeat_time_ >
+					kUCPDefaultTimeout) {
+					internel->status_ = kExit;
+					break;
+				}
+
 				ikcp_update(internel->kcp_, iclock());
+				Message msg = { kHeartbeat, internel->session_id_, 0 };
+				internel->sock_->send_to(&msg, sizeof(msg),
+										 internel->remote_address_);
+
 				internel->status_ = tranfer_status_from_connected(internel);
 			} else if (internel->status_ == kClosed) {
 				break;
@@ -113,6 +124,9 @@ Status ClientInternel::tranfer_status_from_connected(
 	if (msg.msg_type == kTypeData) {
 		ikcp_input(internel->kcp_, msg.msg_data, msg.msg_size);
 		return kConnected;
+	} else if (msg.msg_type == kHeartbeat) {
+		internel->last_hearbeat_time_ = std::chrono::steady_clock::now();
+		return kConnected;
 	}
 
 	return kExit;
@@ -137,6 +151,7 @@ ClientInternel::ClientInternel(std::shared_ptr<Sock> sock)
 	: sock_(sock)
 	, status_(kInit)
 	, kcp_(nullptr)
+	, last_hearbeat_time_(std::chrono::steady_clock::now())
 {
 	local_address_.clear();
 	remote_address_.clear();
@@ -198,8 +213,6 @@ bool ClientInternel::connect(const std::string &address)
 
 	} while (!wait_for_accept_with_timeout_(kUCPDefaultTimeout));
 
-
-
 	return true;
 }
 
@@ -219,7 +232,8 @@ bool ClientInternel::wait_for_accept_()
 	}
 }
 
-bool ClientInternel::wait_for_accept_with_timeout_(std::chrono::milliseconds timeout)
+bool ClientInternel::wait_for_accept_with_timeout_(
+	std::chrono::milliseconds timeout)
 {
 	auto start = std::chrono::steady_clock::now();
 	while (true) {
@@ -270,7 +284,7 @@ void ClientInternel::close()
 	if (status_ != kConnected) {
 		return;
 	}
-	
+
 	Message msg;
 	msg.msg_type = kTypeCloseSession;
 	msg.session_id = session_id_;

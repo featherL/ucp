@@ -17,6 +17,7 @@ enum MessageType : uint8_t {
 	kTypeRejectSession,
 	kTypeCloseSession,
 	kTypeData,
+	kHeartbeat,
 };
 
 enum Status {
@@ -43,8 +44,8 @@ constexpr std::chrono::milliseconds kUCPDefaultInterval =
 constexpr std::chrono::milliseconds kUCPDefaultTimeout =
 	std::chrono::milliseconds(1000);
 
-constexpr std::chrono::milliseconds kUCPDefaultHandshakeTimeout = kUCPDefaultTimeout * 3;
-
+constexpr std::chrono::milliseconds kUCPDefaultHandshakeTimeout =
+	kUCPDefaultTimeout * 3;
 
 class Session {
 public:

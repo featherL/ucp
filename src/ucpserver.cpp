@@ -77,8 +77,7 @@ Status ServerInternel::tranfer_status_from_listen(
 		} else {
 			auto connection = std::make_shared<ServerConnection>(sock, address);
 			msg.session_id = connection->session_id();
-			internel->connections_.insert(
-				std::make_pair(address, connection));
+			internel->connections_.insert(std::make_pair(address, connection));
 		}
 		sock->send_to(&msg, sizeof(msg), address);
 	} else if (msg.msg_type == kTypeCloseSession) {
@@ -90,8 +89,24 @@ Status ServerInternel::tranfer_status_from_listen(
 		if (session != internel->connections_.end()) {
 			session->second->kcp_intput(msg.msg_data, msg.msg_size);
 		}
+	} else if (msg.msg_type == kHeartbeat) {
+		if (session != internel->connections_.end()) {
+			session->second->last_hearbeat_time(
+				std::chrono::steady_clock::now());
+			Message msg = { kHeartbeat, session->second->session_id(), 0 };
+			sock->send_to(&msg, sizeof(msg), address);
+		}
 	} else {
 		return kExit;
+	}
+
+	if (session != internel->connections_.end()) {
+		if (session->second->last_hearbeat_time() +
+				kUCPDefaultHandshakeTimeout <
+			std::chrono::steady_clock::now()) {
+			session->second->status(kClosed);
+			internel->connections_.erase(session);
+		}
 	}
 
 	return kListen;
@@ -126,6 +141,7 @@ ServerConnection::ServerConnection(std::shared_ptr<Sock> sock,
 	, remote_address_(address)
 	, status_(kHandshake)
 	, session_id_(++session_id_counter_)
+	, last_hearbeat_time_(std::chrono::steady_clock::now())
 {
 	kcp_ = ikcp_create(session_id_, this);
 	ikcp_setoutput(kcp_, kcp_output);
@@ -167,11 +183,21 @@ ssize_t ServerConnection::recv(void *data, size_t size)
 
 int ServerConnection::kcp_intput(const void *data, size_t size)
 {
+	std::lock_guard<std::mutex> lock(status_mutex_);
+	if (status_ != kConnected) {
+		return -1;
+	}
+
 	return ikcp_input(kcp_, (const char *)data, size);
 }
 
 void ServerConnection::kcp_update()
 {
+	std::lock_guard<std::mutex> lock(status_mutex_);
+	if (status_ != kConnected) {
+		return;
+	}
+
 	ikcp_update(kcp_, iclock());
 }
 
@@ -216,4 +242,19 @@ void ServerConnection::close()
 std::string ServerConnection::address()
 {
 	return remote_address_;
+}
+
+std::chrono::steady_clock::time_point ServerConnection::last_hearbeat_time()
+{
+	std::lock_guard<std::mutex> lock(status_mutex_);
+	return last_hearbeat_time_;
+}
+
+bool ServerConnection::last_hearbeat_time(
+	std::chrono::steady_clock::time_point time)
+{
+	std::lock_guard<std::mutex> lock(status_mutex_);
+	last_hearbeat_time_ = time;
+
+	return true;
 }

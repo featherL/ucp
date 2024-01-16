@@ -39,7 +39,7 @@ public:
 					const std::string &to) override final
 	{
 		if (rand() % 100 < 50) {
-			fprintf(stderr, "drop packet\n");
+			// mock packet loss
 			return 0;
 		}
 
