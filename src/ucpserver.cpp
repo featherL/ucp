@@ -64,28 +64,31 @@ Status ServerInternel::tranfer_status_from_listen(
 		return kExit;
 	}
 
+	std::lock_guard<std::mutex> lock(internel->connections_mutex_);
+	auto session = internel->connections_.find(address);
 	if (msg.msg_type == kTypeNewSession) {
-		auto connection = std::make_shared<ServerConnection>(sock, address);
 		Message msg;
 		msg.msg_type = kTypeAcceptSession;
-		msg.session_id = connection->session_id();
+		msg.session_id = 0;
 		msg.msg_size = 0;
-		sock->send_to(&msg, sizeof(msg), address);
 
-		std::lock_guard<std::mutex> lock(internel->connections_mutex_);
-		internel->connections_.insert(std::make_pair(address, connection));
+		if (session != internel->connections_.end()) {
+			msg.session_id = session->second->session_id();
+		} else {
+			auto connection = std::make_shared<ServerConnection>(sock, address);
+			msg.session_id = connection->session_id();
+			internel->connections_.insert(
+				std::make_pair(address, connection));
+		}
+		sock->send_to(&msg, sizeof(msg), address);
 	} else if (msg.msg_type == kTypeCloseSession) {
-		std::lock_guard<std::mutex> lock(internel->connections_mutex_);
-		auto iter = internel->connections_.find(address);
-		if (iter != internel->connections_.end()) {
-			iter->second->status(kClosed);
-			internel->connections_.erase(iter);
+		if (session != internel->connections_.end()) {
+			session->second->status(kClosed);
+			internel->connections_.erase(session);
 		}
 	} else if (msg.msg_type == kTypeData) {
-		std::lock_guard<std::mutex> lock(internel->connections_mutex_);
-		auto iter = internel->connections_.find(address);
-		if (iter != internel->connections_.end()) {
-			iter->second->kcp_intput(msg.msg_data, msg.msg_size);
+		if (session != internel->connections_.end()) {
+			session->second->kcp_intput(msg.msg_data, msg.msg_size);
 		}
 	} else {
 		return kExit;

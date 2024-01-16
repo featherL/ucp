@@ -41,7 +41,9 @@ constexpr std::chrono::milliseconds kUCPDefaultInterval =
 
 class Session {
 public:
-	virtual ~Session() {}
+	virtual ~Session()
+	{
+	}
 
 	virtual ssize_t send(const void *data, size_t size) = 0;
 
@@ -55,7 +57,6 @@ public:
 	 */
 	virtual std::string address() = 0;
 };
-
 
 class Sock {
 public:
@@ -85,7 +86,8 @@ public:
 	 * @param to target address 
 	 * @return ssize_t size of data sent, -1 if error
 	 */
-	virtual ssize_t send_to(const void *data, size_t size, const std::string &to) = 0;
+	virtual ssize_t send_to(const void *data, size_t size,
+							const std::string &to) = 0;
 
 	/**
 	 * @brief recv a packet
@@ -103,7 +105,6 @@ public:
 	 */
 	virtual void close() = 0;
 };
-
 
 static IUINT32 iclock()
 {

@@ -7,7 +7,6 @@
 #include <queue>
 #include <sstream>
 #include <string>
-#include <sys/types.h>
 #include <thread>
 #include <type_traits>
 #include <unordered_map>

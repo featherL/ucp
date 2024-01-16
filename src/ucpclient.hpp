@@ -82,7 +82,6 @@ public:
 		return internel_->bind(address);
 	}
 
-
 	/**
 	 * @brief connect to address
 	 * 

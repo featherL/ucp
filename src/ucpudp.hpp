@@ -72,7 +72,7 @@ public:
 		if (address == "") {
 			return true;
 		}
-		
+
 		struct sockaddr_in addr;
 		if (!str_to_sockaddr(address, addr)) {
 			return false;
@@ -85,17 +85,17 @@ public:
 		return true;
 	}
 
-    std::string address() override
-    {
-        struct sockaddr_in addr;
-        socklen_t addr_len = sizeof(addr);
-        if (getsockname(fd_, (struct sockaddr *)&addr, &addr_len) == -1) {
-            return "";
-        }
+	std::string address() override
+	{
+		struct sockaddr_in addr;
+		socklen_t addr_len = sizeof(addr);
+		if (getsockname(fd_, (struct sockaddr *)&addr, &addr_len) == -1) {
+			return "";
+		}
 
-        std::string address;
-        return sockaddr_to_str(addr, address) ? address : "";
-    }
+		std::string address;
+		return sockaddr_to_str(addr, address) ? address : "";
+	}
 
 	ssize_t send_to(const void *data, size_t size,
 					const std::string &address) override
@@ -123,19 +123,18 @@ public:
 		socklen_t addr_len = sizeof(addr);
 		ssize_t ret =
 			recvfrom(fd_, data, size, 0, (struct sockaddr *)&addr, &addr_len);
-		
 
-        if (ret < 0) {
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                return 0;
-            }
-        }
+		if (ret < 0) {
+			if (errno == EAGAIN || errno == EWOULDBLOCK) {
+				return 0;
+			}
+		}
 
-        if (ret > 0) {
-            sockaddr_to_str(addr, address);
-        }
+		if (ret > 0) {
+			sockaddr_to_str(addr, address);
+		}
 
-        return ret;
+		return ret;
 	}
 
 	void close() override
