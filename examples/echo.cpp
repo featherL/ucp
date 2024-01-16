@@ -2,6 +2,7 @@
 
 #include <cstdio>
 #include <cstdio>
+#include <cstdlib>
 #include <string>
 #include <thread>
 #include <mutex>
@@ -37,6 +38,11 @@ public:
 	ssize_t send_to(const void *data, size_t size,
 					const std::string &to) override final
 	{
+		if (rand() % 100 < 50) {
+			fprintf(stderr, "drop packet\n");
+			return 0;
+		}
+
 		if (address_ == to) {
 			return -1;
 		}

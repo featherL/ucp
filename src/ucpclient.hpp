@@ -41,6 +41,7 @@ public:
 	std::string address();
 
 private:
+	bool wait_for_accept_with_timeout_(std::chrono::milliseconds timeout);
 	bool wait_for_accept_();
 
 private:

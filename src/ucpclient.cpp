@@ -177,6 +177,15 @@ bool ClientInternel::connect(const std::string &address)
 		}
 
 		remote_address_ = address;
+		status_ = kHandshake;
+	} // free lock
+
+	auto start = std::chrono::steady_clock::now();
+	do {
+		if (std::chrono::steady_clock::now() - start >
+			kUCPDefaultHandshakeTimeout) {
+			return false;
+		}
 
 		Message msg;
 		msg.msg_type = kTypeNewSession;
@@ -187,10 +196,11 @@ bool ClientInternel::connect(const std::string &address)
 			return false;
 		}
 
-		status_ = kHandshake;
-	} // free lock
+	} while (!wait_for_accept_with_timeout_(kUCPDefaultTimeout));
 
-	return wait_for_accept_();
+
+
+	return true;
 }
 
 bool ClientInternel::wait_for_accept_()
@@ -203,6 +213,28 @@ bool ClientInternel::wait_for_accept_()
 			} else if (status_ != kHandshake) {
 				return false;
 			}
+		}
+
+		std::this_thread::sleep_for(kUCPDefaultInterval);
+	}
+}
+
+bool ClientInternel::wait_for_accept_with_timeout_(std::chrono::milliseconds timeout)
+{
+	auto start = std::chrono::steady_clock::now();
+	while (true) {
+		{
+			std::lock_guard<std::mutex> lock(status_mutex_);
+			if (status_ == kConnected) {
+				return true;
+			} else if (status_ != kHandshake) {
+				return false;
+			}
+		}
+
+		auto now = std::chrono::steady_clock::now();
+		if (now - start > timeout) {
+			return false;
 		}
 
 		std::this_thread::sleep_for(kUCPDefaultInterval);

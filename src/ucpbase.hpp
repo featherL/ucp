@@ -3,6 +3,7 @@
 
 #include "kcp/ikcp.h"
 
+#include <chrono>
 #include <string>
 #include <thread>
 
@@ -38,6 +39,12 @@ constexpr size_t kUCPMessageSize = sizeof(Message);
 
 constexpr std::chrono::milliseconds kUCPDefaultInterval =
 	std::chrono::milliseconds(10);
+
+constexpr std::chrono::milliseconds kUCPDefaultTimeout =
+	std::chrono::milliseconds(1000);
+
+constexpr std::chrono::milliseconds kUCPDefaultHandshakeTimeout = kUCPDefaultTimeout * 3;
+
 
 class Session {
 public:
