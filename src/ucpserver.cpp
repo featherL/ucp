@@ -20,18 +20,24 @@ void ServerInternel::monitor_thread_func(
 			if (internel->status_ == kInit) {
 				internel->status_ = tranfer_status_from_init(sock, internel);
 			} else if (internel->status_ == kListen) {
+				std::lock_guard<std::mutex> lock(internel->connections_mutex_);
 				internel->status_ = tranfer_status_from_listen(sock, internel);
+
+				{
+					for (auto it = internel->connections_.begin();
+						 it != internel->connections_.end();) {
+						if (!it->second->kcp_update()) {
+							fprintf(stderr, "session remove\n");
+							internel->connections_.erase(it++);
+						} else {
+							++it;
+						}
+					}
+				}
 			} else if (internel->status_ == kClosed) {
 				break;
 			} else if (internel->status_ == kExit) {
 				break;
-			}
-		}
-
-		{
-			std::lock_guard<std::mutex> lock(internel->connections_mutex_);
-			for (auto &iter : internel->connections_) {
-				iter.second->kcp_update();
 			}
 		}
 
@@ -64,7 +70,6 @@ Status ServerInternel::tranfer_status_from_listen(
 		return kExit;
 	}
 
-	std::lock_guard<std::mutex> lock(internel->connections_mutex_);
 	auto session = internel->connections_.find(address);
 	if (msg.msg_type == kTypeNewSession) {
 		Message msg;
@@ -82,31 +87,24 @@ Status ServerInternel::tranfer_status_from_listen(
 		sock->send_to(&msg, sizeof(msg), address);
 	} else if (msg.msg_type == kTypeCloseSession) {
 		if (session != internel->connections_.end()) {
-			session->second->status(kClosed);
-			internel->connections_.erase(session);
+			session->second->status(kExit);
 		}
 	} else if (msg.msg_type == kTypeData) {
 		if (session != internel->connections_.end()) {
 			session->second->kcp_intput(msg.msg_data, msg.msg_size);
+			session->second->last_hearbeat_time(
+				std::chrono::steady_clock::now());
 		}
 	} else if (msg.msg_type == kHeartbeat) {
 		if (session != internel->connections_.end()) {
 			session->second->last_hearbeat_time(
 				std::chrono::steady_clock::now());
+
 			Message msg = { kHeartbeat, session->second->session_id(), 0 };
 			sock->send_to(&msg, sizeof(msg), address);
 		}
 	} else {
 		return kExit;
-	}
-
-	if (session != internel->connections_.end()) {
-		if (session->second->last_hearbeat_time() +
-				kUCPDefaultHandshakeTimeout <
-			std::chrono::steady_clock::now()) {
-			session->second->status(kClosed);
-			internel->connections_.erase(session);
-		}
 	}
 
 	return kListen;
@@ -191,14 +189,26 @@ int ServerConnection::kcp_intput(const void *data, size_t size)
 	return ikcp_input(kcp_, (const char *)data, size);
 }
 
-void ServerConnection::kcp_update()
+bool ServerConnection::kcp_update()
 {
 	std::lock_guard<std::mutex> lock(status_mutex_);
-	if (status_ != kConnected) {
-		return;
+	if (status_ != kConnected && status_ != kClosed && status_ != kHandshake) {
+		return false;
 	}
 
-	ikcp_update(kcp_, iclock());
+	if (status_ == kClosed) {
+		ikcp_flush(kcp_);
+	} else if (status_ == kConnected) {
+		ikcp_update(kcp_, iclock());
+	}
+
+	if (std::chrono::steady_clock::now() - last_hearbeat_time_ >
+		kUCPDefaultHeartbeatTimeout) {
+		status_ = kExit;
+		return false;
+	}
+
+	return true;
 }
 
 uint32_t ServerConnection::session_id()
@@ -217,6 +227,18 @@ bool ServerConnection::status(Status new_status)
 {
 	std::lock_guard<std::mutex> lock(status_mutex_);
 	status_ = new_status;
+	return true;
+}
+
+bool ServerConnection::accept()
+{
+	std::lock_guard<std::mutex> lock(status_mutex_);
+
+	if (status_ != kHandshake) {
+		return false;
+	}
+
+	status_ = kConnected;
 	return true;
 }
 

@@ -25,21 +25,9 @@ void ClientInternel::monitor_thread_func(
 			} else if (internel->status_ == kHandshake) {
 				internel->status_ = tranfer_status_from_handshake(internel);
 			} else if (internel->status_ == kConnected) {
-				if (std::chrono::steady_clock::now() -
-						internel->last_hearbeat_time_ >
-					kUCPDefaultTimeout) {
-					internel->status_ = kExit;
-					break;
-				}
-
-				ikcp_update(internel->kcp_, iclock());
-				Message msg = { kHeartbeat, internel->session_id_, 0 };
-				internel->sock_->send_to(&msg, sizeof(msg),
-										 internel->remote_address_);
-
 				internel->status_ = tranfer_status_from_connected(internel);
 			} else if (internel->status_ == kClosed) {
-				break;
+				internel->status_ = tranfer_status_from_closed(internel);
 			} else if (internel->status_ == kExit) {
 				break;
 			}
@@ -98,6 +86,18 @@ Status ClientInternel::tranfer_status_from_handshake(
 Status ClientInternel::tranfer_status_from_connected(
 	std::shared_ptr<ClientInternel> internel)
 {
+	ikcp_update(internel->kcp_, iclock());
+
+	auto now = std::chrono::steady_clock::now();
+	if (now - internel->last_hearbeat_time_ > kUCPDefaultHeartbeatTimeout) {
+		return kClosed;
+	}
+
+	if (now - internel->last_hearbeat_time_ > kUCPDefaultHeartbeatInterval) {
+		Message msg = { kHeartbeat, internel->session_id_, 0 };
+		internel->sock_->send_to(&msg, sizeof(msg), internel->remote_address_);
+	}
+
 	Message msg;
 	std::string address;
 	ssize_t ret = internel->sock_->recv_from(&msg, sizeof(msg), address);
@@ -127,6 +127,33 @@ Status ClientInternel::tranfer_status_from_connected(
 	} else if (msg.msg_type == kHeartbeat) {
 		internel->last_hearbeat_time_ = std::chrono::steady_clock::now();
 		return kConnected;
+	}
+
+	return kExit;
+}
+
+Status ClientInternel::tranfer_status_from_closed(
+	std::shared_ptr<ClientInternel> internel)
+{
+	Message msg;
+	std::string address;
+	ssize_t ret = internel->sock_->recv_from(&msg, sizeof(msg), address);
+	if (ret == -1) {
+		return kExit;
+	}
+
+	if (ret == 0) {
+		ikcp_flush(internel->kcp_);
+		return kClosed;
+	}
+
+	if (ret > 0 && address == internel->remote_address_ && ret == sizeof(msg)) {
+		if (msg.msg_type == kTypeData) {
+			ikcp_input(internel->kcp_, msg.msg_data, msg.msg_size);
+		}
+
+		ikcp_flush(internel->kcp_);
+		return kClosed;
 	}
 
 	return kExit;
@@ -162,6 +189,7 @@ ClientInternel::~ClientInternel()
 {
 	if (kcp_ != nullptr) {
 		ikcp_release(kcp_);
+		kcp_ = nullptr;
 	}
 }
 
@@ -211,7 +239,7 @@ bool ClientInternel::connect(const std::string &address)
 			return false;
 		}
 
-	} while (!wait_for_accept_with_timeout_(kUCPDefaultTimeout));
+	} while (!wait_for_accept_with_timeout_(kUCPDefaultHeartbeatTimeout));
 
 	return true;
 }
@@ -291,10 +319,18 @@ void ClientInternel::close()
 	msg.msg_size = 0;
 
 	sock_->send_to(&msg, sizeof(msg), remote_address_);
-	ikcp_update(kcp_, iclock());
 
 	status_ = kClosed;
+}
 
+void ClientInternel::exit()
+{
+	std::lock_guard<std::mutex> lock(status_mutex_);
+	if (status_ == kExit) {
+		return;
+	}
+
+	status_ = kExit;
 	sock_->close();
 }
 

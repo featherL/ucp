@@ -26,6 +26,8 @@ private:
 	tranfer_status_from_handshake(std::shared_ptr<ClientInternel> internel);
 	static Status
 	tranfer_status_from_connected(std::shared_ptr<ClientInternel> internel);
+	static Status
+	tranfer_status_from_closed(std::shared_ptr<ClientInternel> internel);
 
 public:
 	ClientInternel() = delete;
@@ -37,6 +39,8 @@ public:
 	ssize_t send(const void *data, size_t size);
 	ssize_t recv(void *data, size_t size);
 	void close();
+
+	void exit();
 
 	std::string address();
 
@@ -69,7 +73,7 @@ public:
 
 	~Client() override
 	{
-		internel_->close();
+		internel_->exit();
 		monitor_thread_.join();
 	}
 

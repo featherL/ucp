@@ -41,11 +41,14 @@ constexpr size_t kUCPMessageSize = sizeof(Message);
 constexpr std::chrono::milliseconds kUCPDefaultInterval =
 	std::chrono::milliseconds(10);
 
-constexpr std::chrono::milliseconds kUCPDefaultTimeout =
-	std::chrono::milliseconds(1000);
+constexpr std::chrono::milliseconds kUCPDefaultHeartbeatTimeout =
+	std::chrono::milliseconds(30000);
+
+constexpr std::chrono::milliseconds kUCPDefaultHeartbeatInterval =
+	std::chrono::milliseconds(10000);
 
 constexpr std::chrono::milliseconds kUCPDefaultHandshakeTimeout =
-	kUCPDefaultTimeout * 3;
+	std::chrono::milliseconds(3000);
 
 class Session {
 public:

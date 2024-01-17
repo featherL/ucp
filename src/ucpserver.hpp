@@ -38,11 +38,15 @@ public:
 	std::string address() override;
 
 	int kcp_intput(const void *data, size_t size);
-	void kcp_update();
+
+	// return false if need to remove from connections
+	bool kcp_update();
 
 	uint32_t session_id();
 	Status status();
 	bool status(Status new_status);
+
+	bool accept();
 
 	bool last_hearbeat_time(std::chrono::steady_clock::time_point time);
 	std::chrono::steady_clock::time_point last_hearbeat_time();
@@ -197,8 +201,7 @@ public:
 			{
 				std::lock_guard<std::mutex> lock(internel_->connections_mutex_);
 				for (auto &iter : internel_->connections_) {
-					if (iter.second->status() == kHandshake) {
-						iter.second->status(kConnected);
+					if (iter.second->accept()) {
 						return iter.second;
 					}
 				}
@@ -206,6 +209,11 @@ public:
 
 			std::this_thread::sleep_for(kUCPDefaultInterval);
 		}
+	}
+
+	void exit()
+	{
+		internel_->exit();
 	}
 
 private:

@@ -19,6 +19,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	std::cout << "connect to " << remote_addr << " success" << std::endl;
+
 	std::string msg;
 	while (std::getline(std::cin, msg)) {
 		ssize_t n = client.send(msg.data(), msg.size());
@@ -46,6 +48,8 @@ int main(int argc, char *argv[])
 				std::this_thread::sleep_for(
 					std::chrono::milliseconds(10)); // wait for data
 			}
+		} else {
+			std::cout << "send 0" << std::endl;
 		}
 	}
 
