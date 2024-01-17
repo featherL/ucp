@@ -72,7 +72,7 @@ Status ClientInternel::tranfer_status_from_handshake(
 		ikcp_setoutput(internel->kcp_, ucp_output);
 		ikcp_nodelay(internel->kcp_, 1, 10, 2, 1);
 		ikcp_wndsize(internel->kcp_, 128, 128);
-		ikcp_setmtu(internel->kcp_, 1400);
+		ikcp_setmtu(internel->kcp_, kUCPMessageSize);
 		ikcp_update(internel->kcp_, iclock());
 
 		return kConnected;
@@ -90,6 +90,7 @@ Status ClientInternel::tranfer_status_from_connected(
 
 	auto now = std::chrono::steady_clock::now();
 	if (now - internel->last_hearbeat_time_ > kUCPDefaultHeartbeatTimeout) {
+		// remote timeout, do not release, just close
 		return kClosed;
 	}
 
@@ -118,7 +119,7 @@ Status ClientInternel::tranfer_status_from_connected(
 	}
 
 	if (msg.msg_type == kTypeCloseSession) {
-		return kExit; // remote close
+		return kClosed; // remote close, but recv may still work
 	}
 
 	if (msg.msg_type == kTypeData) {

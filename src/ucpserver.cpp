@@ -27,7 +27,6 @@ void ServerInternel::monitor_thread_func(
 					for (auto it = internel->connections_.begin();
 						 it != internel->connections_.end();) {
 						if (!it->second->kcp_update()) {
-							fprintf(stderr, "session remove\n");
 							internel->connections_.erase(it++);
 						} else {
 							++it;
@@ -87,7 +86,8 @@ Status ServerInternel::tranfer_status_from_listen(
 		sock->send_to(&msg, sizeof(msg), address);
 	} else if (msg.msg_type == kTypeCloseSession) {
 		if (session != internel->connections_.end()) {
-			session->second->status(kExit);
+			// remote close but may to recv data
+			session->second->status(kClosed);
 		}
 	} else if (msg.msg_type == kTypeData) {
 		if (session != internel->connections_.end()) {
@@ -145,7 +145,7 @@ ServerConnection::ServerConnection(std::shared_ptr<Sock> sock,
 	ikcp_setoutput(kcp_, kcp_output);
 	ikcp_nodelay(kcp_, 1, 10, 2, 1);
 	ikcp_wndsize(kcp_, 128, 128);
-	ikcp_setmtu(kcp_, 1400);
+	ikcp_setmtu(kcp_, kUCPMessageSize);
 	ikcp_update(kcp_, iclock());
 }
 
@@ -182,7 +182,7 @@ ssize_t ServerConnection::recv(void *data, size_t size)
 int ServerConnection::kcp_intput(const void *data, size_t size)
 {
 	std::lock_guard<std::mutex> lock(status_mutex_);
-	if (status_ != kConnected) {
+	if (status_ != kConnected && status_ != kClosed) {
 		return -1;
 	}
 
@@ -209,7 +209,7 @@ bool ServerConnection::kcp_update()
 	}
 
 	if (std::chrono::steady_clock::now() - last_hearbeat_time_ >
-		kUCPDefaultHeartbeatTimeout) {
+		kUCPDefaultHeartbeatTimeout) {  // only remove session when timeout
 		status_ = kExit;
 		return false;
 	}
