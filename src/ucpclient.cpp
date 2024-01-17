@@ -118,7 +118,7 @@ Status ClientInternel::tranfer_status_from_connected(
 	}
 
 	if (msg.msg_type == kTypeCloseSession) {
-		return kClosed;
+		return kExit; // remote close
 	}
 
 	if (msg.msg_type == kTypeData) {
@@ -144,6 +144,13 @@ Status ClientInternel::tranfer_status_from_closed(
 
 	if (ret == 0) {
 		ikcp_flush(internel->kcp_);
+		
+		Message msg;
+		msg.msg_type = kTypeCloseSession;
+		msg.session_id = internel->session_id_;
+		msg.msg_size = 0;
+
+		internel->sock_->send_to(&msg, sizeof(msg), internel->remote_address_);
 		return kClosed;
 	}
 
@@ -312,13 +319,6 @@ void ClientInternel::close()
 	if (status_ != kConnected) {
 		return;
 	}
-
-	Message msg;
-	msg.msg_type = kTypeCloseSession;
-	msg.session_id = session_id_;
-	msg.msg_size = 0;
-
-	sock_->send_to(&msg, sizeof(msg), remote_address_);
 
 	status_ = kClosed;
 }

@@ -23,6 +23,9 @@ void client_handler(std::shared_ptr<ucp::Session> session)
 				std::cerr << "send failed" << std::endl;
 				return;
 			}
+
+			session->close();
+			break;
 		}
 
 		std::this_thread::sleep_for(

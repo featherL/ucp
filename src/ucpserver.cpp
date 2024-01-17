@@ -198,6 +198,12 @@ bool ServerConnection::kcp_update()
 
 	if (status_ == kClosed) {
 		ikcp_flush(kcp_);
+		Message msg;
+		msg.msg_type = kTypeCloseSession;
+		msg.session_id = session_id_;
+		msg.msg_size = 0;
+
+		sock_->send_to(&msg, sizeof(msg), remote_address_);
 	} else if (status_ == kConnected) {
 		ikcp_update(kcp_, iclock());
 	}
@@ -250,14 +256,6 @@ void ServerConnection::close()
 	}
 
 	status_ = kClosed;
-
-	Message msg;
-	msg.msg_type = kTypeCloseSession;
-	msg.session_id = session_id_;
-	msg.msg_size = 0;
-
-	sock_->send_to(&msg, sizeof(msg), remote_address_);
-
 	// do not close socket
 }
 
