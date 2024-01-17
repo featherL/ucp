@@ -12,11 +12,13 @@ target("echo")
 
 target("udpserver")
     set_kind("binary")
+    set_languages("cxx17")
     add_files("examples/udpserver.cpp")
     add_deps("ucp")
 
 target("udpclient")
     set_kind("binary")
+    set_languages("cxx17")
     add_files("examples/udpclient.cpp")
     add_deps("ucp")
     

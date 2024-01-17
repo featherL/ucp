@@ -2,6 +2,7 @@
 #define UCP_SRC_UCPUDP_HPP_
 
 // only support linux
+#include <mutex>
 #include <string>
 #ifndef __linux__
 #error "only support linux"
@@ -12,6 +13,7 @@
 #include <unistd.h>
 #include <stdexcept>
 #include <fcntl.h>
+#include <shared_mutex>
 
 namespace ucp {
 class UDPSock : public Sock {
@@ -69,6 +71,8 @@ public:
 
 	bool bind(const std::string &address) override
 	{
+		std::unique_lock<std::shared_mutex> lock(fd_mutex_);
+		
 		if (address == "") {
 			return true;
 		}
@@ -87,6 +91,8 @@ public:
 
 	std::string address() override
 	{
+		std::shared_lock<std::shared_mutex> lock(fd_mutex_);
+
 		struct sockaddr_in addr;
 		socklen_t addr_len = sizeof(addr);
 		if (getsockname(fd_, (struct sockaddr *)&addr, &addr_len) == -1) {
@@ -100,6 +106,7 @@ public:
 	ssize_t send_to(const void *data, size_t size,
 					const std::string &address) override
 	{
+		std::shared_lock<std::shared_mutex> lock(fd_mutex_);
 		if (fd_ == -1) {
 			return -1;
 		}
@@ -115,6 +122,7 @@ public:
 
 	ssize_t recv_from(void *data, size_t size, std::string &address) override
 	{
+		std::shared_lock<std::shared_mutex> lock(fd_mutex_);
 		if (fd_ == -1) {
 			return -1;
 		}
@@ -139,6 +147,7 @@ public:
 
 	void close() override
 	{
+		std::unique_lock<std::shared_mutex> lock(fd_mutex_);
 		if (fd_ != -1) {
 			::close(fd_);
 			fd_ = -1;
@@ -147,6 +156,8 @@ public:
 
 private:
 	int fd_;
+	std::shared_mutex address_mutex_;
+	std::shared_mutex fd_mutex_;
 };
 
 };
