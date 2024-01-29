@@ -1,6 +1,8 @@
 # ucp
 Protocol provides reliable connection
 
+**refer**: https://github.com/skywind3000/kcp
+
 ## Usage
 
 implement ucp::Sock
